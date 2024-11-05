@@ -24,8 +24,6 @@ ADMINS_FILE = 'admins.json'
 # Задайте ID супер адміністратора
 SUPER_ADMIN_ID = os.getenv('SUPPER_ADMIN_ID')
 
-BOT_APY_KEY = os.getenv('BOT_APY_KEY')
-
 # def load_groups():
 #     """Завантажити ID груп з JSON-файлу."""
 #     global monitored_groups
@@ -94,7 +92,7 @@ async def count_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main() -> None:
     # load_groups()  # Завантажити моніторингові групи під час запуску
     load_admins()  # Завантажити адмінів під час запуску
-    application = ApplicationBuilder().token(BOT_APY_KEY).build()
+    application = ApplicationBuilder().token(os.getenv("BOT_TOKEN")).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member))
