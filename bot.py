@@ -3,7 +3,7 @@ import os
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes, ApplicationBuilder, ConversationHandler, MessageHandler, filters
 from dotenv import load_dotenv
-from db_config import SessionLocal, PotentialAdmin, Admin, Group, add_super_admin_if_not_exist, init_db
+from db_config import SessionLocal, PotentialAdmin, Admin, Group, UserGroup, add_super_admin_if_not_exist, init_db
 from sqlalchemy.exc import IntegrityError
 
 load_dotenv()
@@ -90,27 +90,33 @@ async def is_admin(user_id):
 async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     session = SessionLocal()
 
-    # Отримання ID та назви групи
+    # Отримуємо ID та назву групи
     group_id = update.effective_chat.id
     group_title = update.effective_chat.title
 
-    # Перевірка, чи вже існує запис для цієї групи в базі
+    # Отримуємо або створюємо групу
     group = session.query(Group).filter_by(group_id=group_id).first()
     if not group:
-        # Якщо група ще не існує в базі, створюємо запис
-        group = Group(group_id=group_id, group_name=group_title, unique_members_count=0, is_active=True)
+        group = Group(group_id=group_id, group_name=group_title, unique_members_count=0)
         session.add(group)
         session.commit()
 
-    # Додаємо нових учасників до унікальних учасників групи
+    # Перевіряємо кожного нового учасника
     for user in update.message.new_chat_members:
         if user.id != context.bot.id:
-            # Оновлюємо кількість унікальних учасників тільки для інших, не для самого бота
-            group.unique_members_count = (group.unique_members_count or 0) + 1
-
-
-    session.commit()
+            # Перевіряємо, чи вже існує запис для цього користувача в даній групі
+            user_group = session.query(UserGroup).filter_by(user_id=user.id, group_id=group.id).first()
+            if not user_group:
+                # Якщо користувача ще немає, додаємо його в групу
+                new_user = UserGroup(user_id=user.id, group_id=group.id)
+                session.add(new_user)
+                
+                # Збільшуємо лічильник унікальних учасників
+                group.unique_members_count += 1
+                session.commit()
+    
     session.close()
+
 
 async def count_active_groups(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await is_admin(update.effective_user.id):

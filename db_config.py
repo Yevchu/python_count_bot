@@ -1,7 +1,7 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, BigInteger, String, Boolean, DateTime
+from sqlalchemy import create_engine, ForeignKey, UniqueConstraint, Column, Integer, BigInteger, String, Boolean, DateTime
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.sql import func
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
@@ -35,6 +35,23 @@ class Group(Base):
     added_at = Column(DateTime, default=func.now())
     unique_members_count = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
+
+    # Відношення для зв’язку з таблицею UserGroup
+    unique_users = relationship("UserGroup", back_populates="group")
+
+class UserGroup(Base):
+    __tablename__ = "user_groups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(BigInteger, nullable=False)
+    group_id = Column(Integer, ForeignKey('groups.id'), nullable=False)
+    
+    # Забезпечуємо, що користувач унікальний для кожної групи
+    __table_args__ = (UniqueConstraint('user_id', 'group_id', name='_user_group_uc'),)
+
+    # Зв’язок з таблицею Group
+    group = relationship("Group", back_populates="unique_users")
+
 
 class PotentialAdmin(Base):
     __tablename__ = "potential_admins"
