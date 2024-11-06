@@ -69,6 +69,3 @@ def add_super_admin_if_not_exist(super_admin_id):
 
 def init_db():
     Base.metadata.create_all(bind=engine)
-
-if __name__ == '__main__':
-    init_db()

@@ -3,7 +3,7 @@ import os
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes, ApplicationBuilder, ConversationHandler
 from dotenv import load_dotenv
-from db_config import SessionLocal, PotentialAdmin, Admin, Group, add_super_admin_if_not_exist
+from db_config import SessionLocal, PotentialAdmin, Admin, Group, add_super_admin_if_not_exist, init_db
 from sqlalchemy.exc import IntegrityError
 
 load_dotenv()
@@ -152,6 +152,8 @@ async def count_specific_group(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 def main() -> None:
+    init_db()
+    
     super_admin_id = SUPER_ADMIN_ID
     add_super_admin_if_not_exist(super_admin_id)
 
