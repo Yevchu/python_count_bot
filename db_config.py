@@ -4,7 +4,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
 from dotenv import load_dotenv
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.exc import IntegrityError
 
 
@@ -46,7 +46,7 @@ class PotentialAdmin(Base):
 
     @staticmethod
     def clean_old_potential_admins(session):
-        expiry_time = datetime.now(datetime.timezone.utc) - timedelta(hours=24)
+        expiry_time = datetime.now(timezone.utc) - timedelta(hours=24)
         session.querry(PotentialAdmin).filter(PotentialAdmin.requested_at < expiry_time).delete()
         session.commit()
 
