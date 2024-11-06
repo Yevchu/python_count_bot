@@ -93,7 +93,7 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     group = session.query(Group).filter_by(group_id=group_id).first()
     if not group:
         # Якщо група ще не існує в базі, створюємо запис
-        group = Group(group_id=group_id, group_name=group_title, unique_mebmer_count=0, is_active=True)
+        group = Group(group_id=group_id, group_name=group_title, unique_members_count=0, is_active=True)
         session.add(group)
         session.commit()
 
@@ -132,31 +132,28 @@ async def count_specific_group(update: Update, context: ContextTypes.DEFAULT_TYP
     if not await is_admin(update.effective_user.id):
         await update.message.reply_text("У вас немає прав на виконання цієї команди.")
         return
-    
-    session = SessionLocal()
-    user_input = update.message.text.split(maxsplit=1)
 
-    if len(user_input) < 2:
-        await update.message.reply_text("Введіть ID або назву групи для отримання інформації.")
-        session.close()
+    # Перевірка наявності параметра після команди
+    if not context.args:
+        await update.message.reply_text("Введіть ID або назву групи для отримання інформації. Приклад: /specific_group <group_id або group_name>")
         return
-    
-    group_indetifier = user_input[1].strip()
 
-    try:
-        group_id = int(group_indetifier)
-        group = session.query(Group).filter_by(group_id=group_id, is_active=True).first()
-    except ValueError:
-        group = session.query(Group).filter_by(group_name=group_indetifier, is_active=True).first()
+    # Обробка параметра команди
+    group_identifier = context.args[0].strip()
 
-    if group:
-        message = (f'Група "{group.group_name}": Максимальна кількість унікальних учасників - '
-                   f'{group.unique_members_count}')
-        await update.message.reply_text(message)
-    else:
-        await update.message.reply_text("Групу не знайдено або бот не активний у цій групі.")
-    
-    session.close()
+    with SessionLocal() as session:
+        try:
+            group_id = int(group_identifier)
+            group = session.query(Group).filter_by(group_id=group_id, is_active=True).first()
+        except ValueError:
+            group = session.query(Group).filter_by(group_name=group_identifier, is_active=True).first()
+
+        if group:
+            message = (f'Група "{group.group_name}": Максимальна кількість унікальних учасників - '
+                       f'{group.unique_members_count}')
+            await update.message.reply_text(message)
+        else:
+            await update.message.reply_text("Групу не знайдено або бот не активний у цій групі.")
 
 
 def main() -> None:
@@ -170,7 +167,7 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member))
     application.add_handler(CommandHandler('active_groups', count_active_groups))   
-    application.add_handler(CommandHandler('specific_group', count_specific_group)) 
+    application.add_handler(CommandHandler("specific_group", count_specific_group))
 
     application.run_polling()
 
