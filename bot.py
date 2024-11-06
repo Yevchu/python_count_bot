@@ -101,7 +101,8 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     for user in update.message.new_chat_members:
         if user.id != context.bot.id:
             # Оновлюємо кількість унікальних учасників тільки для інших, не для самого бота
-            group.unique_members_count += 1
+            group.unique_members_count = (group.unique_members_count or 0) + 1
+
 
     session.commit()
     session.close()
