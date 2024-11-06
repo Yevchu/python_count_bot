@@ -166,6 +166,14 @@ def main() -> None:
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member))
+    application.add_handler(ConversationHandler(
+        entry_points=[CommandHandler("add_admin", add_admin_start)],
+        states={
+            ADD_ADMIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_admin_process)],
+        },
+        fallbacks=[],
+    ))
+
     application.add_handler(CommandHandler('active_groups', count_active_groups))   
     application.add_handler(CommandHandler("specific_group", count_specific_group))
 
