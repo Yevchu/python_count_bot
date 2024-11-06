@@ -47,7 +47,7 @@ class PotentialAdmin(Base):
     @staticmethod
     def clean_old_potential_admins(session):
         expiry_time = datetime.now(timezone.utc) - timedelta(hours=24)
-        session.querry(PotentialAdmin).filter(PotentialAdmin.requested_at < expiry_time).delete()
+        session.query(PotentialAdmin).filter(PotentialAdmin.requested_at < expiry_time).delete()
         session.commit()
 
 def add_super_admin_if_not_exist(super_admin_id):
