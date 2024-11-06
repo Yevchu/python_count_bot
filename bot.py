@@ -25,9 +25,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     username = update.effective_user.username
 
-    potential_admin = PotentialAdmin(user_id=user_id, username=username)
-    session.add(potential_admin)
-    session.commit()
+    existing_admin = session.query(PotentialAdmin).filter_by(user_id=user_id).first()
+    if not existing_admin:
+        potential_admin = PotentialAdmin(user_id=user_id, username=username)
+        session.add(potential_admin)
+        try:
+            session.commit()
+        except IntegrityError:
+            session.rollback()
 
     await update.message.reply_text('Привіт! Я рахую унікальних учасників чату.')
     session.close()

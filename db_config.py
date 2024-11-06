@@ -33,7 +33,7 @@ class Group(Base):
     group_id = Column(BigInteger, unique=True, nullable=False)
     group_name = Column(String, nullable=False)
     added_at = Column(DateTime, default=func.now())
-    unique_mebmer_count = Column(Integer, default=0)
+    unique_members_count = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
 
 class PotentialAdmin(Base):
