@@ -153,15 +153,15 @@ async def count_specific_group(update: Update, context: ContextTypes.DEFAULT_TYP
 
 def main() -> None:
     init_db()
-    
+
     super_admin_id = SUPER_ADMIN_ID
     add_super_admin_if_not_exist(super_admin_id)
 
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
-    application.add_handler('active_groups', count_active_groups)   
-    application.add_handler('specific_group', count_specific_group) 
+    application.add_handler(CommandHandler('active_groups', count_active_groups))   
+    application.add_handler(CommandHandler('specific_group', count_specific_group)) 
 
     application.run_polling()
 
