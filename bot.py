@@ -1,9 +1,10 @@
 import logging
-import json
 import os
 from telegram import Update
-from telegram.ext import CommandHandler, MessageHandler, filters, ContextTypes, ApplicationBuilder, ConversationHandler
+from telegram.ext import CommandHandler, ContextTypes, ApplicationBuilder, ConversationHandler
 from dotenv import load_dotenv
+from db_config import SessionLocal, PotentialAdmin, Admin, Group, add_super_admin_if_not_exist
+from sqlalchemy.exc import IntegrityError
 
 load_dotenv()
 # Налаштування логування
@@ -12,135 +13,156 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-unique_users = set()
-max_unique_count = 0
-monitored_groups = set()
-group_data = {}
-
-# Файл для зберігання ID груп та ID адмінів
-GROUPS_FILE = 'groups.json'
-ADMINS_FILE = 'admins.json'
-
-# Задайте ID супер адміністратора
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 SUPER_ADMIN_ID = int(os.getenv('SUPER_ADMIN_ID'))
-
-# Стан для ConversationHandler
 ADD_ADMIN = range(1)
 
-# def load_groups():
-#     """Завантажити ID груп з JSON-файлу."""
-#     global monitored_groups
-#     if os.path.exists(GROUPS_FILE):
-#         with open(GROUPS_FILE, 'r') as file:
-#             monitored_groups = set(json.load(file))
-
-# def save_groups():
-#     """Зберегти ID груп у JSON-файл."""
-#     with open(GROUPS_FILE, 'w') as file:
-#         json.dump(list(monitored_groups), file)
-
-def load_admins():
-    """Завантажити ID адмінів з JSON-файлу."""
-    if os.path.exists(ADMINS_FILE):
-        with open(ADMINS_FILE, 'r') as file:
-            return set(json.load(file))
-    return set()
-
-def save_admins(admins):
-    """Зберегти ID адмінів у JSON-файл."""
-    with open(ADMINS_FILE, 'w') as file:
-        json.dump(list(admins), file)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    session = SessionLocal()
+    PotentialAdmin.clean_old_potential_admins(session)
+
+    user_id = update.effective_user.id
+    username = update.effective_user.username
+
+    potential_admin = PotentialAdmin(user_id=user_id, username=username)
+    session.add(potential_admin)
+    session.commit()
+
     await update.message.reply_text('Привіт! Я рахую унікальних учасників чату.')
-
-async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    global group_data
-
-    # Отримання ID та назви групи
-    group_id = str(update.effective_chat.id)
-    group_title = update.effective_chat.title
-
-    # Якщо група ще не існує, ініціалізуйте її
-    if group_id not in group_data:
-        group_data[group_id] = {
-            'title': group_title,
-            'unique_users': set(),
-            'max_unique_count': 0
-        }
-
-    # Додаємо нових учасників до унікальних учасників групи
-    for user in update.message.new_chat_members:
-        group_data[group_id]['unique_users'].add(user.id)
-
-    # Оновлення максимального підрахунку унікальних учасників
-    current_count = len(group_data[group_id]['unique_users'])
-    if current_count > group_data[group_id]['max_unique_count']:
-        group_data[group_id]['max_unique_count'] = current_count
-
-    # # Зберігаємо дані групи
-    # save_groups()
-
-async def count_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id in [SUPER_ADMIN_ID] + list(load_admins()):
-        counts = []
-        for group_id, data in group_data.items():
-            counts.append(f'Група "{data["title"]}": Максимальна кількість унікальних учасників: {data["max_unique_count"]}')
-        
-        await context.bot.send_message(update.effective_user.id, "\n".join(counts) if counts else "Бот ще не доданий до жодної групи.")
-    else:
-        await context.bot.send_message(update.effective_user.id, 'Вибачте, у вас немає доступу до цього бота.')
+    session.close()
 
 async def add_admin_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != SUPER_ADMIN_ID:
         await update.message.reply_text('У вас нема прав для додавання адміністратора')
         return ConversationHandler.END
-    
     await update.message.reply_text('Введіть ID або тег Telegram користувача, якого хочете зробити адміном')
     return ADD_ADMIN
 
 async def add_admin_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_input = update.message.text
-    admins = load_admins()
-    admin_username = ''
+    session = SessionLocal()
 
     # Додавання адміністратора 
     try:
         new_admin_id = int(user_input)
     except ValueError:
-        try:
-            new_admin_username = user_input.strip('@')
-            admin_username = new_admin_username
-            chat_member = await context.bot.get_chat_member(update.effective_chat.id, new_admin_username)
-            new_admin_id = chat_member.user.id
-        except Exception as e:
-            await update.message.reply_text(f"Помилка: Не вдалося отримати ID для користувача {user_input}. {str(e)}")
+        new_admin_username = user_input.strip('@')
+        potential_admin = session.query(PotentialAdmin).filter_by(username=new_admin_username).first()
+        
+        if potential_admin:
+            new_admin_id = potential_admin.id
+        else:
+            await update.message.reply_text(
+                f"Помилка: Користувач із тегом @{new_admin_username} не надсилав команду /start або не збережений у базі."
+            )
+            session.close()
             return ConversationHandler.END
-    
-    admins.add(new_admin_id)
-    save_admins(admins)
+    new_admin = Admin(user_id=new_admin_id)
+    try:
+        session.add(new_admin)
+        session.commit()
+        await update.message.reply_text(f"Користувача з ID {new_admin_id} було додано як адміністратора.")
+    except IntegrityError:
+        session.rollback()
+        await update.message.reply_text(f"Користувач з ID {new_admin_id} вже є адміністратором.")
+    finally:
+        session.close()
 
-    await update.message.reply_text(f'Користувач {admin_username} був доданий як адмін')
     return ConversationHandler.END
+
+async def is_admin(user_id):
+    session = SessionLocal()
+    admin = session.query(Admin).filter_by(user_id=user_id).first()
+    session.close()
+    return admin is not None
+
+async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    session = SessionLocal()
+
+    # Отримання ID та назви групи
+    group_id = update.effective_chat.id
+    group_title = update.effective_chat.title
+
+    group = session.query(Group).filter_by(group_id=group_id).first()
+    if not group:
+        group = Group(group_id=group_id, group_name=group_title, unique_mebmer_count=0)
+        session.add(group)
+        session.commit()
+
+    for user in update.message.new_chat_members:
+        if user.id != context.bot.id:
+            unique_user_ids = session.query(Group).filter_by(group_id=group_id).first()
+            unique_user_ids.add(user.id)
+
+            group.unique_mebmer_count = len(unique_user_ids)
+            session.commit()
+    session.close()
+
+async def count_active_groups(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await is_admin(update.effective_user.id):
+        await update.message.reply_text("У вас немає прав на виконання цієї команди.")
+        return
+    
+    session = SessionLocal()
+    counts = []
+
+    active_groups = session.query(Group).filter_by(is_active=True).all()
+    for group in active_groups:
+        counts.append(
+            f'Група "{group.group_name}": Максимальна кількість унікальних учасників - {group.unique_members_count}'
+
+        )
+
+    if counts:
+        await context.bot.send_message(update.effective_user.id, "\n".join(counts))
+    else:
+        await context.bot.send_message(update.effective_user.id, "Бот ще не доданий до жодної активної групи.")
+    session.close()
+
+async def count_specific_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await is_admin(update.effective_user.id):
+        await update.message.reply_text("У вас немає прав на виконання цієї команди.")
+        return
+    
+    session = SessionLocal()
+    user_input = update.message.text.split(maxsplit=1)
+
+    if len(user_input) < 2:
+        await update.message.reply_text("Введіть ID або назву групи для отримання інформації.")
+        session.close()
+        return
+    
+    group_indetifier = user_input[1].strip()
+
+    try:
+        group_id = int(group_indetifier)
+        group = session.query(Group).filter_by(group_id=group_id, is_active=True).first()
+    except ValueError:
+        group = session.query(Group).filter_by(group_name=group_indetifier, is_active=True).first()
+
+    if group:
+        message = (f'Група "{group.group_name}": Максимальна кількість унікальних учасників - '
+                   f'{group.unique_members_count}')
+        await update.message.reply_text(message)
+    else:
+        await update.message.reply_text("Групу не знайдено або бот не активний у цій групі.")
+    
+    session.close()
 
 
 def main() -> None:
-    # load_groups()  # Завантажити моніторингові групи під час запуску
-    load_admins()  # Завантажити адмінів під час запуску
-    application = ApplicationBuilder().token(os.getenv("BOT_TOKEN")).build()
-    add_admin_handler = ConversationHandler(
-        entry_points=[CommandHandler('add_admin', add_admin_start)],
-        states={
-            ADD_ADMIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_admin_process)]
-        },
-        fallbacks=[]
-    )
+    super_admin_id = SUPER_ADMIN_ID
+    add_super_admin_if_not_exist(super_admin_id)
+
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member))
-    application.add_handler(CommandHandler('count', count_members))
-    application.add_handler(add_admin_handler)
+    application.add_handler('active_groups', count_active_groups)   
+    application.add_handler('specific_group', count_specific_group) 
 
     application.run_polling()
+
+
 if __name__ == '__main__':
     main()
