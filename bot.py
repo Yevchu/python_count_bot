@@ -102,18 +102,21 @@ async def add_admin_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def add_admin_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_input = update.message.text
     admins = load_admins()
+    admin_username = ''
 
     # Додавання адміністратора 
     try:
         new_admin_id = int(user_input)
     except ValueError:
         new_admin_username = user_input.strip('@')
-        new_admin_id = await context.bot.get_chat_member(update.effective_chat.id, new_admin_username).user.id
+        admin_username = new_admin_username
+        chat_member = await context.bot.get_chat_member(update.effective_chat.id, new_admin_username)
+        new_admin_id = chat_member.user.id
     
     admins.add(new_admin_id)
     save_admins(admins)
 
-    await update.message.reply_text(f'Користувач {new_admin_username} був доданий як адмін')
+    await update.message.reply_text(f'Користувач {admin_username} був доданий як адмін')
     return ConversationHandler.END
 
 
