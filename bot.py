@@ -1,7 +1,7 @@
 import logging
 import os
 from telegram import Update
-from telegram.ext import CommandHandler, ContextTypes, ApplicationBuilder, ConversationHandler
+from telegram.ext import CommandHandler, ContextTypes, ApplicationBuilder, ConversationHandler, MessageHandler, filters
 from dotenv import load_dotenv
 from db_config import SessionLocal, PotentialAdmin, Admin, Group, add_super_admin_if_not_exist, init_db
 from sqlalchemy.exc import IntegrityError
@@ -84,19 +84,21 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     group_id = update.effective_chat.id
     group_title = update.effective_chat.title
 
+    # Перевірка, чи вже існує запис для цієї групи в базі
     group = session.query(Group).filter_by(group_id=group_id).first()
     if not group:
-        group = Group(group_id=group_id, group_name=group_title, unique_mebmer_count=0)
+        # Якщо група ще не існує в базі, створюємо запис
+        group = Group(group_id=group_id, group_name=group_title, unique_mebmer_count=0, is_active=True)
         session.add(group)
         session.commit()
 
+    # Додаємо нових учасників до унікальних учасників групи
     for user in update.message.new_chat_members:
         if user.id != context.bot.id:
-            unique_user_ids = session.query(Group).filter_by(group_id=group_id).first()
-            unique_user_ids.add(user.id)
+            # Оновлюємо кількість унікальних учасників тільки для інших, не для самого бота
+            group.unique_mebmer_count += 1
 
-            group.unique_mebmer_count = len(unique_user_ids)
-            session.commit()
+    session.commit()
     session.close()
 
 async def count_active_groups(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -160,6 +162,7 @@ def main() -> None:
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member))
     application.add_handler(CommandHandler('active_groups', count_active_groups))   
     application.add_handler(CommandHandler('specific_group', count_specific_group)) 
 
