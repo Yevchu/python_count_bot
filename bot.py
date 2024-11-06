@@ -48,33 +48,38 @@ async def add_admin_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_input = update.message.text
     session = SessionLocal()
 
-    # Додавання адміністратора 
     try:
+        # Спробуємо інтерпретувати введення як ID
         new_admin_id = int(user_input)
+        new_admin_username = None  # Якщо вводиться ID, не маємо імені користувача
     except ValueError:
+        # Якщо введення не є числом, припускаємо, що це тег користувача
         new_admin_username = user_input.strip('@')
         potential_admin = session.query(PotentialAdmin).filter_by(username=new_admin_username).first()
         
         if potential_admin:
-            new_admin_id = potential_admin.id
+            new_admin_id = potential_admin.user_id
         else:
             await update.message.reply_text(
                 f"Помилка: Користувач із тегом @{new_admin_username} не надсилав команду /start або не збережений у базі."
             )
             session.close()
             return ConversationHandler.END
-    new_admin = Admin(user_id=new_admin_id)
+
+    # Додаємо нового адміністратора з username (якщо є)
+    new_admin = Admin(user_id=new_admin_id, username=new_admin_username)
     try:
         session.add(new_admin)
         session.commit()
-        await update.message.reply_text(f"Користувача з ID {new_admin_id} було додано як адміністратора.")
+        await update.message.reply_text(f"Користувача @{new_admin_username or new_admin_id} було додано як адміністратора.")
     except IntegrityError:
         session.rollback()
-        await update.message.reply_text(f"Користувач з ID {new_admin_id} вже є адміністратором.")
+        await update.message.reply_text(f"Користувач @{new_admin_username or new_admin_id} вже є адміністратором.")
     finally:
         session.close()
 
     return ConversationHandler.END
+
 
 async def is_admin(user_id):
     session = SessionLocal()
