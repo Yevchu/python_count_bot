@@ -137,28 +137,35 @@ async def count_specific_group(update: Update, context: ContextTypes.DEFAULT_TYP
     if not await is_admin(update.effective_user.id):
         await update.message.reply_text("У вас немає прав на виконання цієї команди.")
         return
-
-    # Перевірка наявності параметра після команди
+    
+    session = SessionLocal()
+    
+    # Перевіряємо, чи передано параметр для ідентифікації групи
     if not context.args:
-        await update.message.reply_text("Введіть ID або назву групи для отримання інформації. Приклад: /specific_group <group_id або group_name>")
+        await update.message.reply_text("Введіть ID або точну назву групи для отримання інформації. Приклад: /specific_group <group_id або 'назва групи'>")
+        session.close()
         return
 
-    # Обробка параметра команди
-    group_identifier = context.args[0].strip()
+    # Об'єднуємо параметри команди в один рядок на випадок, якщо назва групи має пробіли
+    group_identifier = " ".join(context.args).strip()
 
-    with SessionLocal() as session:
-        try:
-            group_id = int(group_identifier)
-            group = session.query(Group).filter_by(group_id=group_id, is_active=True).first()
-        except ValueError:
-            group = session.query(Group).filter_by(group_name=group_identifier, is_active=True).first()
+    try:
+        # Якщо групу ідентифіковано за ID
+        group_id = int(group_identifier)
+        group = session.query(Group).filter_by(group_id=group_id, is_active=True).first()
+    except ValueError:
+        # Якщо ідентифікація за назвою
+        group = session.query(Group).filter_by(group_name=group_identifier, is_active=True).first()
 
-        if group:
-            message = (f'Група "{group.group_name}": Максимальна кількість унікальних учасників - '
-                       f'{group.unique_members_count}')
-            await update.message.reply_text(message)
-        else:
-            await update.message.reply_text("Групу не знайдено або бот не активний у цій групі.")
+    if group:
+        message = (f'Група "{group.group_name}": Максимальна кількість унікальних учасників - '
+                   f'{group.unique_members_count}')
+        await update.message.reply_text(message)
+    else:
+        await update.message.reply_text("Групу не знайдено або бот не активний у цій групі.")
+    
+    session.close()
+
 
 
 def main() -> None:
