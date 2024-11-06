@@ -2,7 +2,7 @@ import logging
 import json
 import os
 from telegram import Update
-from telegram.ext import CommandHandler, MessageHandler, filters, ContextTypes, ApplicationBuilder
+from telegram.ext import CommandHandler, MessageHandler, filters, ContextTypes, ApplicationBuilder, ConversationHandler
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,6 +23,9 @@ ADMINS_FILE = 'admins.json'
 
 # Задайте ID супер адміністратора
 SUPER_ADMIN_ID = int(os.getenv('SUPER_ADMIN_ID'))
+
+# Стан для ConversationHandler
+ADD_ADMIN = range(1)
 
 # def load_groups():
 #     """Завантажити ID груп з JSON-файлу."""
@@ -88,15 +91,48 @@ async def count_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await context.bot.send_message(update.effective_user.id, 'Вибачте, у вас немає доступу до цього бота.')
 
-        
+async def add_admin_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != SUPER_ADMIN_ID:
+        await update.message.reply_text('У вас нема прав для додавання адміністратора')
+        return ConversationHandler.END
+    
+    await update.message.reply_text('Введіть ID або тег Telegram користувача, якого хочете зробити адміном')
+    return ADD_ADMIN
+
+async def add_admin_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_input = update.message.text
+    admins = load_admins()
+
+    # Додавання адміністратора 
+    try:
+        new_admin_id = int(user_input)
+    except ValueError:
+        new_admin_username = user_input.strip('@')
+        new_admin_id = await context.bot.get_chat_member(update.effective_chat.id, new_admin_username).user.id
+    
+    admins.add(new_admin_id)
+    save_admins(admins)
+
+    await update.message.reply_text(f'Користувач {new_admin_username} був доданий як адмін')
+    return ConversationHandler.END
+
+
 def main() -> None:
     # load_groups()  # Завантажити моніторингові групи під час запуску
     load_admins()  # Завантажити адмінів під час запуску
     application = ApplicationBuilder().token(os.getenv("BOT_TOKEN")).build()
+    add_admin_handler = ConversationHandler(
+        entry_points=[CommandHandler('add_admin', add_admin_start)],
+        states={
+            ADD_ADMIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_admin_process)]
+        },
+        fallbacks=[]
+    )
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member))
     application.add_handler(CommandHandler('count', count_members))
+    application.add_handler(add_admin_handler)
 
     application.run_polling()
 if __name__ == '__main__':
