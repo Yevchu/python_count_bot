@@ -22,7 +22,7 @@ GROUPS_FILE = 'groups.json'
 ADMINS_FILE = 'admins.json'
 
 # Задайте ID супер адміністратора
-SUPER_ADMIN_ID = os.getenv('SUPPER_ADMIN_ID')
+SUPER_ADMIN_ID = int(os.getenv('SUPPER_ADMIN_ID'))
 
 # def load_groups():
 #     """Завантажити ID груп з JSON-файлу."""
