@@ -108,10 +108,14 @@ async def add_admin_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         new_admin_id = int(user_input)
     except ValueError:
-        new_admin_username = user_input.strip('@')
-        admin_username = new_admin_username
-        chat_member = await context.bot.get_chat_member(update.effective_chat.id, new_admin_username)
-        new_admin_id = chat_member.user.id
+        try:
+            new_admin_username = user_input.strip('@')
+            admin_username = new_admin_username
+            chat_member = await context.bot.get_chat_member(update.effective_chat.id, new_admin_username)
+            new_admin_id = chat_member.user.id
+        except Exception as e:
+            await update.message.reply_text(f"Помилка: Не вдалося отримати ID для користувача {user_input}. {str(e)}")
+            return ConversationHandler.END
     
     admins.add(new_admin_id)
     save_admins(admins)
