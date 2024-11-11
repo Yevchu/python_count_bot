@@ -70,7 +70,7 @@ async def add_super_admin_process(update: Update, context: ContextTypes.DEFAULT_
             user_id = potential_admin.user_id
         existing_admin = admin_service.get_admin_by_id(user_id)
         if existing_admin:
-            message = admin_service.add_super_admin(existing_admin)
+            message = admin_service.add_super_admin(existing_admin.user_id)
         else:
             message = admin_service.new_super_admin(user_id, username)
 
@@ -115,11 +115,13 @@ async def is_super_admin(user_id: int):
         super_admin = admin_service.get_super_admin_by_id(user_id)
     return super_admin is not None
 
-def clean_old_potential_admins(session: Session) -> None:
+async def clean_old_potential_admins(session: Session) -> None:
     PotentialAdmin.clean_old_potential_admins(session=session)
 
-def add_potential_admin(session: Session, user_id: int, username: str) -> None:
-    potential_admin = PotentialAdmin(user_id=user_id, username=username)
-    session.add(potential_admin)
-    session.commit()
+async def add_potential_admin(session: Session, user_id: int, username: str) -> None:
+    potential_admin = await is_admin(user_id)
+    if not potential_admin:
+        potential_admin = PotentialAdmin(user_id=user_id, username=username)
+        session.add(potential_admin)
+        session.commit()
 

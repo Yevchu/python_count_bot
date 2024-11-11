@@ -65,21 +65,19 @@ class PotentialAdmin(Base):
         session.commit()
 
 def add_super_admin_if_not_exist(super_admin_id):
-    session = SessionLocal()
-    try:
-        admin = session.query(Admin).filter_by(user_id=super_admin_id).first()
-        if not admin:
-            super_admin = Admin(user_id=super_admin_id, is_super_admin=True)
-            session.add(super_admin)
-            session.commit()
-            print(f"Супер адміністратора з ID {super_admin_id} додано в базу даних.")
-        else:
-            print(f"Супер адміністратор з ID {super_admin_id} вже існує в базі даних.")
-    except IntegrityError:
-        session.rollback()
-        print("Помилка: не вдалося додати супер адміністратора.")
-    finally:
-        session.close()
+    with SessionLocal() as session:
+        try:
+            admin = session.query(Admin).filter_by(user_id=super_admin_id).first()
+            if not admin:
+                super_admin = Admin(user_id=super_admin_id, is_super_admin=True)
+                session.add(super_admin)
+                session.commit()
+                print(f"Супер адміністратора з ID {super_admin_id} додано в базу даних.")
+            else:
+                print(f"Супер адміністратор з ID {super_admin_id} вже існує в базі даних.")
+        except IntegrityError:
+            session.rollback()
+            print("Помилка: не вдалося додати супер адміністратора.")
 
 def init_db():
     Base.metadata.create_all(bind=engine)
