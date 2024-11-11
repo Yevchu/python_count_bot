@@ -36,7 +36,6 @@ class Group(Base):
     unique_members_count = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
 
-    # Відношення для зв’язку з таблицею UserGroup
     unique_users = relationship("UserGroup", back_populates="group")
 
 class UserGroup(Base):
@@ -46,10 +45,8 @@ class UserGroup(Base):
     user_id = Column(BigInteger, nullable=False)
     group_id = Column(Integer, ForeignKey('groups.id'), nullable=False)
     
-    # Забезпечуємо, що користувач унікальний для кожної групи
     __table_args__ = (UniqueConstraint('user_id', 'group_id', name='_user_group_uc'),)
 
-    # Зв’язок з таблицею Group
     group = relationship("Group", back_populates="unique_users")
 
 
