@@ -9,21 +9,29 @@ REMOVE_GROUP, SPECIFIC_GROUP = range(2)
 
 async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     with SessionLocal() as session:
-        group_service = GroupService(session)
+        try:
+            group_service = GroupService(session)
 
-        group_id = update.effective_chat.id
-        group_title = update.effective_chat.title
+            group_id = update.effective_chat.id
+            group_title = update.effective_chat.title
 
-        group = group_service.get_or_create_group(group_id, group_title)
+            group = group_service.get_or_create_group(group_id, group_title)
+            session.commit()  
 
-        for user in update.message.new_chat_members:
-            if user.id != context.bot.id:
-                try:
-                    result = group_service.add_unique_member(group, user.id)
-                    session.commit()
-                except IntegrityError:
-                    session.rollback()
-                    await update.message.reply_text("Помилка при додаванні користувача до групи.")
+            for user in update.message.new_chat_members:
+                if user.id != context.bot.id:
+                    try:
+                        group_service.add_unique_member(group, user.id)
+                        session.commit()
+                    except IntegrityError as e:
+                        session.rollback()
+                        print(f"Integrity error: {e}")
+                    except Exception as e:
+                        session.rollback()
+                        print(f"Unexpected error: {e}")
+        except Exception as e:
+            session.rollback()
+            print(f"Critical error during group creation or user addition: {e}")
 
 async def count_active_groups(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await is_admin(update.effective_user.id):
