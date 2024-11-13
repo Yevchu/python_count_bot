@@ -82,3 +82,22 @@ async def remove_group_process(update: Update, context: ContextTypes.DEFAULT_TYP
 
     return ConversationHandler.END
     
+async def leave_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await is_admin(update.effective_user.id):
+        await update.message.reply_text("У вас немає прав на виконання цієї команди.")
+        return ConversationHandler.END
+    
+    group_identifier = ' '.join(context.args).strip() if context.args else update.effective_chat.id
+
+    with SessionLocal() as session:
+        group_service = GroupService(session)
+
+        group = group_service.get_group_by_identifier(session=session, group_identifier=group_identifier)
+
+        if group:
+            result = group_service.delete_group(group_identifier)
+            await context.bot.leave_chat(group.group_id)
+            await update.message.reply_text(result or f"Бот покинув групу '{group.group_name}'.")
+        else:
+            await update.message.reply_text("Групу не знайдено.")
+

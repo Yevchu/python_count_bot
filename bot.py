@@ -14,7 +14,8 @@ from group import (
     new_member, 
     count_active_groups, 
     count_specific_group_start, count_specific_group_process, 
-    remove_group_start, remove_group_process, 
+    remove_group_start, remove_group_process,
+    leave_group,
     REMOVE_GROUP, SPECIFIC_GROUP
     )
 
@@ -79,7 +80,7 @@ def main() -> None:
         },
         fallbacks=[],
     ))
-    
+
     application.add_handler(ConversationHandler(
         entry_points=[CommandHandler("remove_group", remove_group_start)],
         states={
@@ -87,6 +88,7 @@ def main() -> None:
         },
         fallbacks=[],
     ))
+    application.add_handler(CommandHandler("leave_group", leave_group))
 
     application.run_polling()
 
