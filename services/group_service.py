@@ -8,7 +8,7 @@ class GroupService:
 
     def add_unique_member(self, group: Group, user_id: int) -> bool:
         if user_id not in group.unique_users:
-            group.unique_users.add(user_id)
+            group.unique_users.append(user_id)
             group.unique_members_count += 1
             self.session.commit()
             return True
