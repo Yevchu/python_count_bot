@@ -14,7 +14,7 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         group_id = update.effective_chat.id
         group_title = update.effective_chat.title
 
-        group = group_service.get_or_creat_group(group_id, group_title)
+        group = group_service.get_or_create_group(group_id, group_title)
 
         for user in update.message.new_chat_members:
             if user.id != context.bot.id:

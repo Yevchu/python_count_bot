@@ -33,11 +33,10 @@ class GroupService:
         self.session.commit()
         return group
 
-    def get_or_creat_group(self, group_id: int, group_name: str) -> Group:
-        group = self.get_group_by_identifier(self.session, str(group_id))
+    def get_or_create_group(self, group_id: int, group_name: str) -> Group:
+        group = self.get_group_by_identifier(self.session, group_id)
         if not group:
             group = self.create_group(group_id, group_name)
-            self.session.add(group)
             self.session.commit()
         return group
     
