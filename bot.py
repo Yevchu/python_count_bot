@@ -10,7 +10,13 @@ from admin import (
     add_admin_process, remove_admin_process, add_super_admin_process,
     clean_old_potential_admins, add_potential_admin
     )
-from group import new_member, count_active_groups, count_specific_group
+from group import (
+    new_member, 
+    count_active_groups, 
+    count_specific_group_start, count_specific_group_process, 
+    remove_group_start, remove_group_process, 
+    REMOVE_GROUP, SPECIFIC_GROUP
+    )
 
 load_dotenv()
 
@@ -65,8 +71,22 @@ def main() -> None:
         fallbacks=[],
     ))
 
-    application.add_handler(CommandHandler('active_groups', count_active_groups))   
-    application.add_handler(CommandHandler("specific_group", count_specific_group))
+    application.add_handler(CommandHandler("active_groups", count_active_groups))   
+    application.add_handler(ConversationHandler(
+        entry_points=[CommandHandler("specific_group", count_specific_group_start)],
+        states={
+            SPECIFIC_GROUP: [MessageHandler(filters.TEXT & ~filters.COMMAND, count_specific_group_process)],
+        },
+        fallbacks=[],
+    ))
+    
+    application.add_handler(ConversationHandler(
+        entry_points=[CommandHandler("remove_group", remove_group_start)],
+        states={
+            REMOVE_GROUP: [MessageHandler(filters.TEXT & ~filters.COMMAND, remove_group_process)],
+        },
+        fallbacks=[],
+    ))
 
     application.run_polling()
 

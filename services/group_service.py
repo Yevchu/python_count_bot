@@ -1,9 +1,9 @@
 from db_config import Group, SessionLocal
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, Union
 
 class GroupService:
-    def __init__(self, session):
+    def __init__(self, session: Session):
         self.session = session
 
     def add_unique_member(self, group: Group, user_id: int) -> bool:
@@ -43,3 +43,12 @@ class GroupService:
             self.session.add(group)
             self.session.commit()
         return group
+    
+    def delete_group(self, group_identifier: Union[str, int]) -> str:
+        group = self.get_group_by_identifier(self.session, group_identifier)
+        if not group:
+            return "Такої групи не було знайдено."
+        
+        self.session.delete(group)
+        self.session.commit()
+        return "Групу було видаленно."
