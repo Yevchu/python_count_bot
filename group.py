@@ -1,6 +1,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 from services.group_service import GroupService
+from sqlalchemy.exc import IntegrityError
 from admin import is_admin
 from db_config import SessionLocal
 
@@ -70,7 +71,11 @@ async def remove_group_process(update: Update, context: ContextTypes.DEFAULT_TYP
     with SessionLocal() as session:
         group_service = GroupService(session)
 
-        result = group_service.delete_group(user_input)
-        await update.message.reply_text(result)
-        return ConversationHandler.END
+        try:
+            result = group_service.delete_group(user_input)
+            await update.message.reply_text(result)
+        except IntegrityError:
+            session.rollback()
+    
+    return ConversationHandler.END
     
