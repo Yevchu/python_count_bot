@@ -67,7 +67,7 @@ async def remove_group_start(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return REMOVE_GROUP
     
 async def remove_group_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_input = update.message.text
+    user_input = update.message.text.strip()
     with SessionLocal() as session:
         group_service = GroupService(session)
 
@@ -76,6 +76,9 @@ async def remove_group_process(update: Update, context: ContextTypes.DEFAULT_TYP
             await update.message.reply_text(result)
         except IntegrityError:
             session.rollback()
-    
+            await update.message.reply_text("Виникла помилка при видаленні групи.")
+        except Exception as e:
+            await update.message.reply_text(f"Помилка: {e}")
+
     return ConversationHandler.END
     

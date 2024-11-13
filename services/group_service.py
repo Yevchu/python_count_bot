@@ -15,14 +15,11 @@ class GroupService:
         return False
     
     @staticmethod
-    def get_group_by_identifier(session: Session, group_identifier: str) -> Optional[Group]:
-        try:
-            group_id = int(group_identifier)
-            group = session.query(Group).filter_by(group_id=group_id, is_active=True).first()
-        except ValueError:
-            group = session.query(Group).filter_by(group_name=group_identifier, is_active=True).first()
-    
-        return group
+    def get_group_by_identifier(session, group_identifier: Union[str, int]) -> Optional[Group]:
+        if isinstance(group_identifier, int):
+            return session.query(Group).filter_by(group_id=group_identifier, is_active=True).first()
+        else: 
+            return session.query(Group).filter_by(group_name=group_identifier, is_active=True).first()
 
     @staticmethod
     def get_active_groups() -> list:
