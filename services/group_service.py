@@ -1,5 +1,6 @@
 from db_config import Group, SessionLocal, UserGroup
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from typing import Optional, Union
 
 class GroupService:
@@ -20,9 +21,9 @@ class GroupService:
     @staticmethod
     def get_group_by_identifier(session, group_identifier: Union[str, int]) -> Optional[Group]:
         if isinstance(group_identifier, int):
-            return session.query(Group).filter_by(group_id=group_identifier, is_active=True).first()
+            return session.query(Group).filter_by(group_id=group_identifier).first()
         else: 
-            return session.query(Group).filter_by(group_name=group_identifier, is_active=True).first()
+            return session.query(Group).filter_by(group_name=group_identifier).first()
 
     @staticmethod
     def get_active_groups() -> list:
@@ -47,7 +48,11 @@ class GroupService:
         group = self.get_group_by_identifier(self.session, group_identifier)
         if not group:
             return "Такої групи не було знайдено."
-        
-        self.session.delete(group)
-        self.session.commit()
-        return "Групу було видаленно."
+        try:
+            self.session.delete(group)
+            self.session.commit()
+            return f"Групу {group.group_name} було видаленно."
+        except IntegrityError:
+            self.session.rollback()
+            return "Сталася помилка при видаленні групи"
+

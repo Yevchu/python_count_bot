@@ -36,14 +36,14 @@ class Group(Base):
     unique_members_count = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
 
-    unique_users = relationship("UserGroup", back_populates="group")
+    unique_users = relationship("UserGroup", back_populates="group", cascade='all, delete')
 
 class UserGroup(Base):
     __tablename__ = "user_groups"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(BigInteger, nullable=False)
-    group_id = Column(BigInteger, ForeignKey('groups.id'), nullable=False)
+    group_id = Column(BigInteger, ForeignKey('groups.group_id'), nullable=False)
     
     __table_args__ = (UniqueConstraint('user_id', 'group_id', name='_user_group_uc'),)
 
