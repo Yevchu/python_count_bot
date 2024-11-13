@@ -1,4 +1,4 @@
-from db_config import Group, SessionLocal
+from db_config import Group, SessionLocal, UserGroup
 from sqlalchemy.orm import Session
 from typing import Optional, Union
 
@@ -7,12 +7,15 @@ class GroupService:
         self.session = session
 
     def add_unique_member(self, group: Group, user_id: int) -> bool:
-        if user_id not in group.unique_users:
-            group.unique_users.append(user_id)
-            group.unique_members_count += 1
-            self.session.commit()
-            return True
-        return False
+        existing_user = self.session.query(UserGroup).filter_by(user_id=user_id, group_id=group.id).first()
+        
+        if existing_user:
+            return "Користувач вже був доданий раніше"
+
+        new_user_group = UserGroup(user_id=user_id, group_id=group.id)
+        self.session.add(new_user_group)
+        group.unique_members_count += 1
+        return "Користувача додано до групи."
     
     @staticmethod
     def get_group_by_identifier(session, group_identifier: Union[str, int]) -> Optional[Group]:

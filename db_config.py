@@ -43,7 +43,7 @@ class UserGroup(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(BigInteger, nullable=False)
-    group_id = Column(Integer, ForeignKey('groups.id'), nullable=False)
+    group_id = Column(BigInteger, ForeignKey('groups.id'), nullable=False)
     
     __table_args__ = (UniqueConstraint('user_id', 'group_id', name='_user_group_uc'),)
 
@@ -62,6 +62,7 @@ class PotentialAdmin(Base):
     def clean_old_potential_admins(session):
         expiry_time = datetime.now(timezone.utc) - timedelta(hours=24)
         session.query(PotentialAdmin).filter(PotentialAdmin.requested_at < expiry_time).delete()
+        session.flush()
         session.commit()
 
 def add_super_admin_if_not_exist(super_admin_id):

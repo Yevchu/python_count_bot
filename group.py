@@ -18,7 +18,12 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
         for user in update.message.new_chat_members:
             if user.id != context.bot.id:
-                group_service.add_unique_member(group, user.id)
+                try:
+                    result = group_service.add_unique_member(group, user.id)
+                    session.commit()
+                except IntegrityError:
+                    session.rollback()
+                    await update.message.reply_text("Помилка при додаванні користувача до групи.")
 
 async def count_active_groups(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await is_admin(update.effective_user.id):
