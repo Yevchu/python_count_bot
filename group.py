@@ -1,3 +1,4 @@
+import logging
 from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 from services.group_service import GroupService
@@ -5,9 +6,17 @@ from sqlalchemy.exc import IntegrityError
 from admin import is_admin
 from db_config import SessionLocal
 
+logging.basicConfig(
+    level=logging.INFO,  # Можна змінити на DEBUG для більш детального логування
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 REMOVE_GROUP, SPECIFIC_GROUP = range(2)
 
 async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info("Отримано нових учасників у групі '%s' (%d)", update.effective_chat.title, update.effective_chat.id)
+
     with SessionLocal() as session:
         try:
             group_service = GroupService(session)
@@ -16,22 +25,26 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             group_title = update.effective_chat.title
 
             group = group_service.get_or_create_group(group_id, group_title)
+            logger.info("Група оброблена: %s (ID: %d)", group_title, group_id)
+
             session.commit()  
 
             for user in update.message.new_chat_members:
                 if user.id != context.bot.id:
+                    logger.info("Спроба додати користувача: ID %d", user.id)
                     try:
                         group_service.add_unique_member(group, user.id)
                         session.commit()
+                        logger.info("Успіх: %s {user.id}-{user.name} був добавлений")
                     except IntegrityError as e:
                         session.rollback()
-                        print(f"Integrity error: {e}")
+                        logger.error("Помилка при додаванні користувача ID %d до групи %s (ID: %d)", user.id, group_title, group_id)
                     except Exception as e:
                         session.rollback()
-                        print(f"Unexpected error: {e}")
+                        logger.error("Помилка при додаванні користувача ID %d до групи %s (ID: %d)", user.id, group_title, group_id)
         except Exception as e:
             session.rollback()
-            print(f"Critical error during group creation or user addition: {e}")
+            logger.exception("Невідома помилка при обробці групи %s (ID: %d): %s", group_title, group_id, str(e))
 
 async def count_active_groups(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await is_admin(update.effective_user.id):
