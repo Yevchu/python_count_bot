@@ -1,6 +1,6 @@
 import logging
 import os
-from telegram import Update
+from telegram import Update, Bot
 from telegram.ext import CommandHandler, ContextTypes, ApplicationBuilder, ConversationHandler, MessageHandler, filters
 from dotenv import load_dotenv
 from db_config import AsyncSession, add_super_admin_if_not_exist, init_db
@@ -18,6 +18,7 @@ from group import (
     leave_group,
     REMOVE_GROUP, SPECIFIC_GROUP
     )
+from services.tg_api_service import TelegramAPI
 
 load_dotenv()
 
@@ -108,4 +109,7 @@ async def main() -> None:
 
 if __name__ == '__main__':
     import asyncio
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Бот зупинено користувачем.")

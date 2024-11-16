@@ -1,7 +1,7 @@
 import os
 import logging
 from sqlalchemy import ForeignKey, UniqueConstraint, Column, Integer, BigInteger, String, Boolean, DateTime, delete, select
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.sql import func
@@ -18,8 +18,8 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
 
-engine = create_async_engine(DATABASE_URL, echo=True)
-AsyncSessionLocal = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+async_engine = create_async_engine(DATABASE_URL, echo=True)
+AsyncSessionLocal = sessionmaker(bind=async_engine, class_=AsyncSession, expire_on_commit=False)
 Base = declarative_base()
 
 class Admin(Base):
@@ -93,5 +93,5 @@ async def add_super_admin_if_not_exist(super_admin_id):
             logger.exception(f"Непередбачена помилка при додаванні супер адміністратора: {e}")
 
 async def init_db():
-    async with engine.begin() as conn:
+    async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

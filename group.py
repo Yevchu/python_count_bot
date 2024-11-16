@@ -1,10 +1,12 @@
 import logging
-from telegram import Update
+from telegram import Update, Bot
 from telegram.ext import ContextTypes, ConversationHandler
-from services.group_service import GroupService
+from services.group_service import GroupService, GroupSyncService
 from sqlalchemy.exc import IntegrityError
 from admin import is_admin
 from db_config import AsyncSessionLocal
+from services.tg_api_service import TelegramAPI
+from bot import BOT_TOKEN
 
 logging.basicConfig(
     level=logging.INFO,  # Можна змінити на DEBUG для більш детального логування
@@ -13,6 +15,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 REMOVE_GROUP, SPECIFIC_GROUP = range(2)
+bot = Bot(token=BOT_TOKEN)
+chat_api = TelegramAPI(bot)
+
 
 async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.info("Отримано нових учасників у групі '%s' (%d)", update.effective_chat.title, update.effective_chat.id)
@@ -20,6 +25,7 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     async with AsyncSessionLocal() as session:
         try:
             group_service = GroupService(session)
+            group_sync_service = GroupSyncService(session, chat_api)
 
             group_id = update.effective_chat.id
             group_title = update.effective_chat.title
@@ -34,6 +40,7 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                         await group_service.add_unique_member(group, user.id)
                         await session.commit()
                         logger.info("Успіх: Користувач ID %d був доданий", user.id)
+                        # await group_sync_service.sync_members(group_id)
                     except IntegrityError:
                         await session.rollback()
                         logger.error("Помилка при додаванні користувача ID %d до групи %s (ID: %d)", user.id, group_title, group_id)
