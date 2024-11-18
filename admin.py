@@ -104,7 +104,7 @@ async def remove_admin_process(update: Update, context: ContextTypes.DEFAULT_TYP
         return ConversationHandler.END
 
 async def is_admin(user_id: int):
-    async with SessionLocal() as session:
+    with SessionLocal() as session:
         admin_service = AdminService(session)
         admin = await admin_service.get_admin_by_id(user_id)
     return admin is not None
