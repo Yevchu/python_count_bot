@@ -33,13 +33,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     username = update.effective_user.username
 
     with SessionLocal() as session:
-        await clean_old_potential_admins(session)
+        clean_old_potential_admins(session)
 
-        await add_potential_admin(session, user_id, username)
+        add_potential_admin(session, user_id, username)
 
     await update.message.reply_text('Привіт! Я рахую унікальних учасників чату.')
 
-async def main() -> None:
+def main() -> None:
     init_db()
 
     super_admin_id = SUPER_ADMIN_ID
