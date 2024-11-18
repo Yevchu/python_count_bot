@@ -37,15 +37,6 @@ class Group(Base):
 
     unique_users = relationship("UserGroup", back_populates="group", cascade='all, delete')
 
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "group_id": self.group_id,
-            "group_name": self.group_name,
-            "unique_members_count": self.unique_members_count,
-            "is_active": self.is_active,
-        }
-
 class UserGroup(Base):
     __tablename__ = "user_groups"
 
