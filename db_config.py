@@ -1,25 +1,20 @@
 import os
-import logging
-from sqlalchemy import ForeignKey, UniqueConstraint, Column, Integer, BigInteger, String, Boolean, DateTime, delete, select
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy import create_engine, ForeignKey, UniqueConstraint, Column, Integer, BigInteger, String, Boolean, DateTime
+from sqlalchemy.orm import sessionmaker, relationship, declarative_base
 from sqlalchemy.sql import func
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.exc import IntegrityError
 
-load_dotenv()
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-engine = create_async_engine(DATABASE_URL, echo=True)
-AsyncSessionLocal = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 class Admin(Base):
@@ -63,35 +58,26 @@ class PotentialAdmin(Base):
     requested_at = Column(DateTime, default=func.now())
 
     @staticmethod
-    async def clean_old_potential_admins(session: AsyncSession):
+    def clean_old_potential_admins(session):
         expiry_time = datetime.now(timezone.utc) - timedelta(hours=24)
-        async with session.begin():  
-            await session.execute(
-                delete(PotentialAdmin).where(PotentialAdmin.requested_at < expiry_time)
-            )
+        session.query(PotentialAdmin).filter(PotentialAdmin.requested_at < expiry_time).delete()
+        session.flush()
+        session.commit()
 
-async def add_super_admin_if_not_exist(super_admin_id):
-    async with AsyncSessionLocal() as session:
+def add_super_admin_if_not_exist(super_admin_id):
+    with SessionLocal() as session:
         try:
-            result = await session.execute(
-                select(Admin).filter_by(user_id=super_admin_id)
-            )
-            admin = result.scalars().first()
-
+            admin = session.query(Admin).filter_by(user_id=super_admin_id).first()
             if not admin:
                 super_admin = Admin(user_id=super_admin_id, is_super_admin=True)
                 session.add(super_admin)
-                await session.commit()  
-                logger.info(f"Супер адміністратора з ID {super_admin_id} додано в базу даних.")
+                session.commit()
+                print(f"Супер адміністратора з ID {super_admin_id} додано в базу даних.")
             else:
-                logger.info(f"Супер адміністратор з ID {super_admin_id} вже існує в базі даних.")
+                print(f"Супер адміністратор з ID {super_admin_id} вже існує в базі даних.")
         except IntegrityError:
-            await session.rollback()  
-            logger.error("Помилка: не вдалося додати супер адміністратора через порушення цілісності даних.")
-        except Exception as e:
-            await session.rollback()
-            logger.exception(f"Непередбачена помилка при додаванні супер адміністратора: {e}")
+            session.rollback()
+            print("Помилка: не вдалося додати супер адміністратора.")
 
-async def init_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+def init_db():
+    Base.metadata.create_all(bind=engine)
