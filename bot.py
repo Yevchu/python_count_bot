@@ -3,7 +3,7 @@ import os
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes, ApplicationBuilder, ConversationHandler, MessageHandler, filters
 from dotenv import load_dotenv
-from db_config import AsyncSession, add_super_admin_if_not_exist, init_db
+from db_config import SessionLocal, add_super_admin_if_not_exist, init_db
 from admin import (
     SUPER_ADMIN_ID, ADD_ADMIN, ADD_SUPER_ADMIN, REMOVE_ADMIN, 
     add_admin_start, remove_admin_start, add_super_admin_start,
@@ -32,7 +32,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     username = update.effective_user.username
 
-    async with AsyncSession() as session:
+    with SessionLocal() as session:
         await clean_old_potential_admins(session)
 
         await add_potential_admin(session, user_id, username)
@@ -40,10 +40,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text('Привіт! Я рахую унікальних учасників чату.')
 
 async def main() -> None:
-    await init_db()
+    init_db()
 
     super_admin_id = SUPER_ADMIN_ID
-    await add_super_admin_if_not_exist(super_admin_id)
+    add_super_admin_if_not_exist(super_admin_id)
 
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
@@ -90,22 +90,8 @@ async def main() -> None:
     ))
     application.add_handler(CommandHandler("leave_group", leave_group))
 
-    await application.initialize()
-    await application.start()
-    await application.updater.start_polling()
-
-    try:
-        while True:
-            await asyncio.sleep(1)
-    except KeyboardInterrupt:
-        print("Зупинка бота...")
-    finally:
-        if application.updater.running:
-            await application.updater.stop()
-        await application.shutdown()
-        await application.stop()
+    application.run_polling()
 
 
 if __name__ == '__main__':
-    import asyncio
-    asyncio.run(main())
+    main()

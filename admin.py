@@ -2,8 +2,8 @@ import os
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
-from db_config import PotentialAdmin, AsyncSessionLocal
-from sqlalchemy.ext.asyncio import AsyncSession
+from db_config import PotentialAdmin, SessionLocal
+from sqlalchemy.orm import Session
 from services.admin_service import AdminService
 
 load_dotenv()
@@ -20,16 +20,16 @@ async def add_admin_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def add_admin_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_input = update.message.text
-    async with AsyncSessionLocal() as session:
+    with SessionLocal() as session:
         admin_service = AdminService(session)
 
         try:
             new_admin_id = int(user_input)
-            new_admin_username = None  
+            new_admin_username = None
         except ValueError:
             new_admin_username = user_input.strip('@')
             potential_admin = await admin_service.get_potential_admin_by_username(new_admin_username)
-            
+
             if potential_admin:
                 new_admin_id = potential_admin.user_id
             else:
@@ -38,7 +38,7 @@ async def add_admin_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 return ConversationHandler.END
 
-        if await admin_service.add_admin(new_admin_id, new_admin_username):
+        if admin_service.add_admin(new_admin_id, new_admin_username):
             await update.message.reply_text(f"Користувача @{new_admin_username or new_admin_id} було додано як адміністратора.")
         else:
             await update.message.reply_text(f"Користувач @{new_admin_username or new_admin_id} вже є адміністратором.")
@@ -53,7 +53,7 @@ async def add_super_admin_start(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def add_super_admin_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_input = update.message.text.strip()
-    async with AsyncSessionLocal() as session:
+    with SessionLocal() as session:
         admin_service = AdminService(session)
         try:
             user_id = int(user_input)
@@ -85,7 +85,7 @@ async def remove_admin_start(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def remove_admin_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_input = update.message.text
-    async with AsyncSessionLocal() as session:
+    with SessionLocal() as session:
         admin_service = AdminService(session)
 
         try:
@@ -104,24 +104,23 @@ async def remove_admin_process(update: Update, context: ContextTypes.DEFAULT_TYP
         return ConversationHandler.END
 
 async def is_admin(user_id: int):
-    async with AsyncSessionLocal() as session:
+    async with SessionLocal() as session:
         admin_service = AdminService(session)
         admin = await admin_service.get_admin_by_id(user_id)
     return admin is not None
 
 async def is_super_admin(user_id: int):
-    async with AsyncSessionLocal() as session:
+    async with SessionLocal() as session:
         admin_service = AdminService(session)
         super_admin = await admin_service.get_super_admin_by_id(user_id)
     return super_admin is not None
 
-async def clean_old_potential_admins(session: AsyncSession) -> None:
-    await PotentialAdmin.clean_old_potential_admins(session=session)
+def clean_old_potential_admins(session: Session) -> None:
+    PotentialAdmin.clean_old_potential_admins(session=session)
 
-async def add_potential_admin(session: AsyncSession, user_id: int, username: str) -> None:
-    potential_admin = await is_admin(user_id)
+def add_potential_admin(session: Session, user_id: int, username: str) -> None:
+    potential_admin = is_admin(user_id)
     if not potential_admin:
         potential_admin = PotentialAdmin(user_id=user_id, username=username)
         session.add(potential_admin)
-        await session.commit()
-
+        session.commit()
