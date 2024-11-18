@@ -1,7 +1,6 @@
 import os
 from sqlalchemy import create_engine, ForeignKey, UniqueConstraint, Column, Integer, BigInteger, String, Boolean, DateTime
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import sessionmaker, relationship, declarative_base
 from sqlalchemy.sql import func
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
@@ -37,6 +36,15 @@ class Group(Base):
     is_active = Column(Boolean, default=True)
 
     unique_users = relationship("UserGroup", back_populates="group", cascade='all, delete')
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "group_id": self.group_id,
+            "group_name": self.group_name,
+            "unique_members_count": self.unique_members_count,
+            "is_active": self.is_active,
+        }
 
 class UserGroup(Base):
     __tablename__ = "user_groups"

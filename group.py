@@ -11,7 +11,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
 REMOVE_GROUP, SPECIFIC_GROUP = range(2)
 
 async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -27,24 +26,28 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             group = group_service.get_or_create_group(group_id, group_title)
             logger.info("Група оброблена: %s (ID: %d)", group_title, group_id)
 
-            session.commit()  
-
+            # Обробка нових учасників
             for user in update.message.new_chat_members:
                 if user.id != context.bot.id:
-                    logger.info("Спроба додати користувача: ID %d", user.id)
+                    logger.info("Спроба додати користувача: ID %d, ім'я: %s", user.id, user.full_name)
                     try:
-                        group_service.add_unique_member(group, user.id)
-                        session.commit()
-                        logger.info("Успіх: %s {user.id}-{user.name} був добавлений")
+                        if group_service.add_unique_member(group, user.id):
+                            logger.info("Успіх: Користувача ID %d, ім'я %s додано до групи '%s'", user.id, user.full_name, group_title)
+                        else:
+                            logger.warning("Користувач ID %d вже є у групі '%s'", user.id, group_title)
                     except IntegrityError as e:
                         session.rollback()
-                        logger.error("Помилка при додаванні користувача ID %d до групи %s (ID: %d)", user.id, group_title, group_id)
+                        logger.error("IntegrityError: Помилка при додаванні користувача ID %d до групи '%s': %s", user.id, group_title, str(e))
                     except Exception as e:
                         session.rollback()
-                        logger.error("Помилка при додаванні користувача ID %d до групи %s (ID: %d)", user.id, group_title, group_id)
+                        logger.error("Помилка: Користувач ID %d не був доданий до групи '%s': %s", user.id, group_title, str(e))
+
+            # Фінальний коміт після обробки всіх учасників
+            session.commit()
         except Exception as e:
             session.rollback()
-            logger.exception("Невідома помилка при обробці групи %s (ID: %d): %s", group_title, group_id, str(e))
+            logger.exception("Невідома помилка при обробці групи '%s' (ID: %d): %s", group_title, group_id, str(e))
+
 
 async def count_active_groups(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await is_admin(update.effective_user.id):
