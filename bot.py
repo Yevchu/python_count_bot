@@ -90,8 +90,18 @@ def main() -> None:
     ))
     application.add_handler(CommandHandler("leave_group", leave_group))
 
-    application.run_polling()
+    PORT = int(os.environ.get('PORT', 8443))
+    HEROKU_APP_NAME = os.getenv("HEROKU_APP_NAME") 
 
+    if not HEROKU_APP_NAME:
+        raise ValueError("HEROKU_APP_NAME не налаштовано. Додайте цю змінну у вашу конфігурацію.")
 
+    WEBHOOK_URL = f"https://{HEROKU_APP_NAME}.herokuapp.com/{BOT_TOKEN}"
+
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        webhook_url=WEBHOOK_URL
+    )
 if __name__ == '__main__':
     main()
