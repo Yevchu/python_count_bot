@@ -31,10 +31,22 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                 if user.id != context.bot.id:
                     logger.info("Спроба додати користувача: ID %d, ім'я: %s", user.id, user.full_name)
                     try:
-                        if group_service.add_unique_member(group, user.id):
+                        success = group_service.add_unique_member(group, user.id)
+                        if success:
                             logger.info("Успіх: Користувача ID %d, ім'я %s додано до групи '%s'", user.id, user.full_name, group_title)
                         else:
                             logger.warning("Користувач ID %d вже є у групі '%s'", user.id, group_title)
+
+                        # Додаткова перевірка
+                        user_record = group_service.get_user(user_id=user.id, group_id=group.group_id)
+                        if not user_record:
+                            logger.warning("Користувач ID %d не знайдений у базі після додавання. Повторна спроба.", user.id)
+                            success = group_service.add_unique_member(group, user.id)
+                            if success:
+                                logger.info("Повторна спроба успішна: Користувача ID %d додано до групи '%s'", user.id, group_title)
+                            else:
+                                logger.error("Повторна спроба додавання користувача ID %d не вдалася.", user.id)
+
                     except IntegrityError as e:
                         session.rollback()
                         logger.error("IntegrityError: Помилка при додаванні користувача ID %d до групи '%s': %s", user.id, group_title, str(e))
@@ -47,7 +59,6 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         except Exception as e:
             session.rollback()
             logger.exception("Невідома помилка при обробці групи '%s' (ID: %d): %s", group_title, group_id, str(e))
-
 
 async def count_active_groups(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await is_admin(update.effective_user.id):

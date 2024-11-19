@@ -1,103 +1,78 @@
 import pytest
-from services.group_service import GroupService
-from sqlalchemy.orm import Session
-from db_config import UserGroup, Group
-import threading
-import random
-import logging
+from unittest.mock import AsyncMock, patch
+from telegram import Update, Chat, User
+from telegram.ext import ContextTypes
+from group import new_member
 from test_db import TestSessionLocal, create_test_database, drop_test_database
-from concurrent.futures import ThreadPoolExecutor
+from services.group_service import GroupService
 
-
-# Налаштування логування
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger(__name__)
-
-@pytest.fixture(scope="module", autouse=True)
-def setup_test_database():
-    """Фікстура для налаштування тестової бази."""
-    logger.info("Створення тестової бази даних...")
+@pytest.fixture(scope="session", autouse=True)
+def setup_and_teardown_database():
+    # Створення тестової бази
     create_test_database()
     yield
-    logger.info("Видалення тестової бази даних...")
+    # Видалення тестової бази після завершення
     drop_test_database()
 
-@pytest.fixture
-def db_session():
-    """Фікстура для створення сесії тестової бази."""
-    logger.info("Створення нової сесії для тесту...")
-    session = TestSessionLocal()
-    try:
-        yield session
-    finally:
-        logger.info("Закриття сесії...")
-        session.close()
+@pytest.mark.asyncio
+@patch("telegram.Bot.get_chat_member_count", new_callable=AsyncMock)
+@patch("telegram.Bot.get_chat_member", new_callable=AsyncMock)
+async def test_new_member_with_mocked_telegram_api(mock_get_chat_member, mock_get_chat_member_count):
+    # Емуляція відповіді Telegram API
+    mock_get_chat_member_count.return_value = 5
+    mock_get_chat_member.return_value = AsyncMock(
+        user=User(id=12345, first_name="Test", is_bot=False),
+        status="member",
+    )
 
-@pytest.fixture
-def test_groups():
-    """Створює набір груп для тестування."""
-    groups = [{"group_id": i, "group_name": f"Group {i}"} for i in range(1, 3)]  # 50 груп
-    logger.info(f"Згенеровано {len(groups)} тестових груп.")
-    return groups
+    # Емуляція Telegram-об'єктів
+    mock_chat = Chat(id=-100123456789, type="group", title="Test Group")
+    mock_update = AsyncMock(spec=Update)
+    mock_update.effective_chat = mock_chat
+    mock_update.message.new_chat_members = [
+        User(id=12345, first_name="Test", is_bot=False),
+        User(id=67890, first_name="Another", is_bot=False),
+        User(id=12342, first_name="Test", is_bot=False),
+        User(id=67892, first_name="Another", is_bot=False),
+        User(id=12343, first_name="Test", is_bot=False),
+        User(id=67893, first_name="Another", is_bot=False),
+        User(id=12344, first_name="Test", is_bot=False),
+        User(id=67894, first_name="Another", is_bot=False),
+        User(id=123455, first_name="Test", is_bot=False),
+        User(id=67895, first_name="Another", is_bot=False),
+        User(id=12346, first_name="Test", is_bot=False),
+        User(id=67896, first_name="Another", is_bot=False),
+        User(id=12347, first_name="Test", is_bot=False),
+        User(id=67897, first_name="Another", is_bot=False),
+        User(id=12348, first_name="Test", is_bot=False),
+        User(id=67898, first_name="Another", is_bot=False),
+        User(id=12349, first_name="Test", is_bot=False),
+        User(id=67899, first_name="Another", is_bot=False),
+        User(id=123451, first_name="Test", is_bot=False),
+        User(id=678901, first_name="Another", is_bot=False),
+        User(id=123452, first_name="Test", is_bot=False),
+        User(id=678902, first_name="Another", is_bot=False),
+        User(id=123453, first_name="Test", is_bot=False),
+        User(id=678903, first_name="Another", is_bot=False),
+        User(id=123454, first_name="Test", is_bot=False),
+        User(id=678904, first_name="Another", is_bot=False),
 
-@pytest.fixture
-def test_users():
-    """Створює набір користувачів для тестування."""
-    users = [i for i in range(1, 11)]  # Генерує 100 користувачів
-    logger.info(f"Згенеровано {len(users)} тестових користувачів.")
-    return users
+    ]
 
-def add_unique_member_in_thread(group_id, user_id):
-    """Функція для додавання унікального учасника в окремому потоці."""
-    session = TestSessionLocal()  # Окрема сесія для потоку
-    group_service = GroupService(session)
-    logger.info(f"[Thread-{threading.get_ident()}] Початок додавання користувача {user_id} до групи {group_id}.")
-    try:
-        group = group_service.get_or_create_group(group_id=group_id, group_name=f"Group {group_id}")
-        result = group_service.add_unique_member(group, user_id)
-        if result:
-            logger.info(f"[Thread-{threading.get_ident()}] Користувача {user_id} успішно додано до групи {group_id}.")
-        else:
-            logger.warning(f"[Thread-{threading.get_ident()}] Користувач {user_id} вже є у групі {group_id}.")
-        session.commit()
-    except Exception as e:
-        session.rollback()
-        logger.error(f"[Thread-{threading.get_ident()}] Помилка при додаванні користувача {user_id} до групи {group_id}: {e}")
-    finally:
-        session.close()
+    mock_context = AsyncMock(spec=ContextTypes.DEFAULT_TYPE)
+    mock_context.bot.id = 98765
 
-def test_stress_test_unique_members(test_groups, test_users):
-    logger.info("Початок стрес-тесту...")
-    threads = []
+    with TestSessionLocal() as session:
+        group_service = GroupService(session)
 
-    # Підготовка груп у базі
-    session = TestSessionLocal()
-    group_service = GroupService(session)
-    logger.info("Підготовка тестових груп у базі даних...")
-    for group_data in test_groups:
-        group_service.get_or_create_group(group_id=group_data["group_id"], group_name=group_data["group_name"])
-    session.commit()
-    session.close()
-    logger.info("Тестові групи успішно додані до бази даних.")
+        # Виклик функції
+        await new_member(mock_update, mock_context)
 
-    # Використання потоків для додавання користувачів
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        for user_id in test_users:
-            random_group = random.choice(test_groups)
-            group_id = random_group["group_id"]
-            executor.submit(add_unique_member_in_thread, group_id, user_id)
+        # Перевірка результатів у базі
+        group = group_service.get_group_by_identifier(session, mock_chat.id)
+        assert group is not None, "Група не була додана до бази даних"
+        assert group.unique_members_count == 2, "Лічильник унікальних учасників неправильний"
 
-    logger.info("Усі потоки завершили роботу.")
-
-    # Перевірка кількості користувачів у базі
-    session = TestSessionLocal()
-    try:
-        for group_data in test_groups:
-                group_id = group_data["group_id"]
-                group = group_service.get_group_by_identifier(session, group_id)
-                assert group is not None, f"Група з ID {group_id} повинна існувати"
-                logger.info(f"Група {group_id}: {group.unique_members_count} унікальних учасників.")
-                logger.info("Стрес-тест успішно завершено.")
-    finally:
-        session.close()
-    logger.info("Стрес-тест успішно завершено.")
+        for user in mock_update.message.new_chat_members:
+            db_user = group_service.get_user(user_id=user.id, group_id=mock_chat.id)
+            assert db_user is not None, f"Користувач ID {user.id} не був доданий до бази даних"
