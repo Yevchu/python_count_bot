@@ -1,12 +1,20 @@
 import os
+import logging
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 from db_config import PotentialAdmin, SessionLocal
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from services.admin_service import AdminService
 
 load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,  # Можна змінити на DEBUG для більш детального логування
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 SUPER_ADMIN_ID = int(os.getenv('SUPER_ADMIN_ID'))
 ADD_ADMIN, ADD_SUPER_ADMIN, REMOVE_ADMIN = range(3)
@@ -113,6 +121,10 @@ def clean_old_potential_admins(session: Session) -> None:
     PotentialAdmin.clean_old_potential_admins(session=session)
 
 def add_potential_admin(session: Session, user_id: int, username: str) -> None:
-    potential_admin = PotentialAdmin(user_id=user_id, username=username)
-    session.add(potential_admin)
-    session.commit()
+    try:
+        potential_admin = PotentialAdmin(user_id=user_id, username=username)
+        session.add(potential_admin)
+        session.commit()
+    except IntegrityError as e:
+        session.rollback()
+        logger.info('Користувач вже був доданий до бази раніше.')
