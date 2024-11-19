@@ -127,4 +127,4 @@ def add_potential_admin(session: Session, user_id: int, username: str) -> None:
         session.commit()
     except IntegrityError as e:
         session.rollback()
-        logger.info('Користувач вже був доданий до бази раніше.')
+        logger.info('Користувач вже був доданий до бази раніше.', e)
