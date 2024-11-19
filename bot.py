@@ -47,9 +47,7 @@ def main() -> None:
     super_admin_id = SUPER_ADMIN_ID
     add_super_admin_if_not_exist(super_admin_id)
 
-    application = ApplicationBuilder().token(BOT_TOKEN).webhook_url(
-        f"https://{HEROKU_APP_NAME}.herokuapp.com/{BOT_TOKEN}"
-        ).build()
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member))
@@ -102,8 +100,9 @@ def main() -> None:
     WEBHOOK_URL = f"https://{HEROKU_APP_NAME}.herokuapp.com/{BOT_TOKEN}"
 
     application.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
+        listen="0.0.0.0",  # Слухати на всіх інтерфейсах
+        port=int(os.getenv("PORT", 8443)),  # Використати змінну PORT для Heroku
+        url_path=BOT_TOKEN,  # URL шлях вебхука (зазвичай це токен)
         webhook_url=WEBHOOK_URL
     )
 if __name__ == '__main__':
