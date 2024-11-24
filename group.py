@@ -91,8 +91,8 @@ async def max_member_count(bot) -> None:
                 if group.max_member_count < member_count:
                     group.max_member_count = member_count
                     logger.debug(f"Перед комітом: max_member_count для групи {group.group_name} = {group.max_member_count}")
+                    session.add(group)
                     session.commit()
-                    session.refresh(group)
                     logger.debug(f"Після коміту: max_member_count для групи {group.group_name} = {group.max_member_count}")
             except Exception as e:
                 session.rollback()
