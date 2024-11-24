@@ -7,7 +7,7 @@ from admin import is_admin
 from db_config import SessionLocal
 
 logging.basicConfig(
-    level=logging.INFO,  # Можна змінити на DEBUG для більш детального логування
+    level=logging.INFO, 
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -60,6 +60,44 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             session.rollback()
             logger.exception("Невідома помилка при обробці групи '%s' (ID: %d): %s", group_title, group_id, str(e))
 
+async def new_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info("Отримано нову групу '%s' (%d)", update.effective_chat.title, update.effective_chat.id)
+
+    with SessionLocal() as session:
+        try:
+            group_service = GroupService(session)
+
+            group_id = update.effective_chat.id
+            group_title = update.effective_chat.title
+
+            group_service.get_or_create_group(group_id, group_title)
+            logger.info("Група оброблена: %s (ID: %d)", group_title, group_id)
+        except Exception as e:
+            logger.exception("Невідома помилка при обробці групи '%s' (ID: %d): %s", group_title, group_id, str(e))
+        
+async def max_member_count(bot) -> None:
+    with SessionLocal() as session:
+        group_service = GroupService(session)
+        groups = group_service.get_active_groups()
+
+        for group in groups:
+            logger.debug(f"Отримано групи: {[group.group_name for group in groups]}")
+            try:
+                member_count = await bot.get_chat_member_count(chat_id=group.group_id)
+
+                if group.max_member_count is None:
+                    group.max_member_count = 0
+
+                if group.max_member_count < member_count:
+                    group.max_member_count = member_count
+                    logger.debug(f"Перед комітом: max_member_count для групи {group.group_name} = {group.max_member_count}")
+                    session.commit()
+                    session.refresh(group)
+                    logger.debug(f"Після коміту: max_member_count для групи {group.group_name} = {group.max_member_count}")
+            except Exception as e:
+                session.rollback()
+                logger.error(f"Помилка отримання даних для групи {group.group_name}: {e}")
+
 async def count_active_groups(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await is_admin(update.effective_user.id):
         await update.message.reply_text("У вас немає прав на виконання цієї команди.")
@@ -70,7 +108,7 @@ async def count_active_groups(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     for group in active_groups:
         counts.append(
-            f'Група "{group.group_name}": Максимальна кількість унікальних учасників - {group.unique_members_count}'
+            f'Група "{group.group_name}": Максимальна кількість учасників - {group.max_member_count}'
             )
 
     if counts:
@@ -91,8 +129,8 @@ async def count_specific_group_process(update: Update, context: ContextTypes.DEF
     with SessionLocal() as session:
         group = GroupService.get_group_by_identifier(session, group_identifier)
         if group:
-            message = (f'Група "{group.group_name}": Максимальна кількість унікальних учасників - '
-                    f'{group.unique_members_count}')
+            message = (f'Група "{group.group_name}": Максимальна кількість учасників - '
+                    f'{group.max_member_count}')
             await update.message.reply_text(message)
         else:
             await update.message.reply_text("Групу не знайдено або бот не активний у цій групі.")

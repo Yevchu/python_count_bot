@@ -34,6 +34,7 @@ class Group(Base):
     added_at = Column(DateTime, default=func.now())
     unique_members_count = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
+    max_member_count = Column(Integer, default=0)
 
     unique_users = relationship("UserGroup", back_populates="group", cascade='all, delete')
 
