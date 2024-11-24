@@ -102,18 +102,18 @@ def main() -> None:
 
     scheduler_max_count(application.bot)
 
-    # if not HEROKU_APP_NAME:
-    #     raise ValueError("HEROKU_APP_NAME не налаштовано. Додайте цю змінну у вашу конфігурацію.")
+    if not HEROKU_APP_NAME:
+        raise ValueError("HEROKU_APP_NAME не налаштовано. Додайте цю змінну у вашу конфігурацію.")
 
-    # WEBHOOK_URL = f"https://{HEROKU_APP_NAME}.herokuapp.com/{BOT_TOKEN}"
+    WEBHOOK_URL = f"https://{HEROKU_APP_NAME}.herokuapp.com/{BOT_TOKEN}"
 
-    # application.run_webhook(
-    #     listen="0.0.0.0",  # Слухати на всіх інтерфейсах
-    #     port=int(os.getenv("PORT", 8443)),  # Використати змінну PORT для Heroku
-    #     url_path=BOT_TOKEN,  # URL шлях вебхука (зазвичай це токен)
-    #     webhook_url=WEBHOOK_URL
-    # )
-    application.run_polling()
+    application.run_webhook(
+        listen="0.0.0.0",  # Слухати на всіх інтерфейсах
+        port=int(os.getenv("PORT", 8443)),  # Використати змінну PORT для Heroku
+        url_path=BOT_TOKEN,  # URL шлях вебхука (зазвичай це токен)
+        webhook_url=WEBHOOK_URL
+    )
+    # application.run_polling()
 
 if __name__ == '__main__':
     main()
